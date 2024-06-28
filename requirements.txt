@@ -1,0 +1,7 @@
+matplotlib
+numpy
+scipy
+torch
+jupyterlab
+seaborn
+ipykernel

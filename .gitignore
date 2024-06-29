@@ -106,3 +106,5 @@ dmypy.json
 
 # gpmp 
 gpmp/
+
+.ipynb_checkpoints/

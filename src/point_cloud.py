@@ -8,6 +8,25 @@ from src.utils import matern_p, constant_mean
 from src.j_plus_gp import j_plus_gp
 
 class Cloud:
+    """
+    Main class to construct a cloud of 2D points (IAE, REML)
+    around the metrics computed with a GP model with parameters
+    selected by restricted maximum likelihood
+
+    Attributes:
+        - d (int): dimension of the design
+        - p (int): regularity of the GP model
+        - x_min (gnp.array): lower bound of the design
+        - x_max (gnp.array): upper bound of the design
+        - f (function): test function
+        - n_train (int): number of points in the train set
+        - n_test (int): number of points in the test set
+
+    Methods:
+        - j_plus_gp_point: compute (IAE, REML) when the 
+                prediction interval is build with J+GP
+        - compute_cloud_points: compute the cloud
+    """
     def __init__(self, d, p, x_min, x_max, f, n_train=50, n_test=1500):
         self.d = d
         self.p = p
@@ -100,6 +119,14 @@ class Cloud:
 
         Each parameter theta_i vary in [a_i*u + b_i],
         where u~U(0, 1)
+
+        The results are stored in the attributes:
+            - On the test set
+                - rmse_res
+                - iae_alpha_res
+            - On the train set
+                - rmse_resloo
+                - iae_alpha_resloo
 
         Parameters:
             - a (list): parameters for variation

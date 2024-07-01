@@ -28,7 +28,7 @@ def j_plus_gp(model: gp.core.Model, data: Data, normalized=True):
         resutls 
     """
     # for simplicity everything is run with numpy
-    zpm_loo, zpv_loo, _ = model.loo(data.x_train, data.z_train, model.covparam)
+    zpm_loo, zpv_loo, _ = model.loo(data.x_train, data.z_train)
 
     n = data.z_train.size()[0]
     n_test = data.x_test.size()[0]

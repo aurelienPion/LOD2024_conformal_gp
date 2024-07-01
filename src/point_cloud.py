@@ -95,7 +95,7 @@ class Cloud:
         self.zpv = gnp.asarray(zpv)
 
         # prediction on the train set
-        zpmloo, zpvloo, _ = self.model.loo(self.data.x_train, self.data.z_train, self.model.covparam)
+        zpmloo, zpvloo, _ = self.model.loo(self.data.x_train, self.data.z_train)
         self.zpmloo = gnp.asarray(zpmloo)
         self.zpvloo = gnp.asarray(zpvloo)
 
@@ -150,7 +150,7 @@ class Cloud:
                 # modify the value of the covparam of the GP model
                 self.model.covparam[k] = self.covparam_reml[k] + a_i*param[i, k] + b_i
                 # metrics on train set by LOO
-                zpmloo, zpvloo, _ = self.model.loo(self.data.x_train, self.data.z_train, self.model.covparam)
+                zpmloo, zpvloo, _ = self.model.loo(self.data.x_train, self.data.z_train)
                 zpmloo = gnp.asarray(zpmloo)
                 zpvloo = gnp.asarray(zpvloo)
                 zpvloo[zpvloo <= 0.] = 1e-5

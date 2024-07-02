@@ -22,14 +22,15 @@ def constant_mean(x, param):
 
 
 def compute_convex_lower_hull(
-    rmse_res, iae_alpha_res, yliminf=0.23, ylimsup=0, xlim=np.inf, nb_p=2 * 10
+    rmse_res, iae_alpha_res, yliminf=0.23, ylimsup=0, xlim=np.inf
 ):
     """Compute the convex hull of a 2D set of points defined by
     (rmse_res, iae_alpha_res)
 
     Return only the part below the set of points.
     """
-    two_d_arrays = gnp.zeros((nb_p * nb_p * nb_p, 2))
+    set_size = rmse_res.shape[0]
+    two_d_arrays = gnp.zeros((set_size, 2))
     two_d_arrays[:, 0] = rmse_res
     two_d_arrays[:, 1] = iae_alpha_res
     hull = ConvexHull(two_d_arrays)

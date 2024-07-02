@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 
-from src.gpmodelmetrics import GPModelMetrics
+from src.gpmodelmetrics import GPExperiment
 from src.functions import goldstein_price
 from src.utils import compute_convex_lower_hull
 
@@ -21,38 +21,49 @@ d = 2
 x_min = gnp.array([-2, -2])
 x_max = gnp.array([ 2,  2])
 
-# GP regularity parameter
+# GP model
 p = 2
 
+gpexperiment = GPExperiment(d, p, x_min, x_max, goldstein_price)
+
 # Bounds for GP parameters when computing the cloud
-logsigma_l, logsigma_u = 0.5, -0.4
-logrho1_l, logrho1_u = 0.3, -0.2
-logrho2_l, logrho2_u = 0.3, -0.2
-lb = [logsigma_l, logrho1_l, logrho2_l]
-ub = [logsigma_u, logrho1_u, logrho2_u]
+s = 10
+logs = np.log(s)
+lb = gpexperiment.model.covparam - logs
+ub = gpexperiment.model.covparam + logs
+
+# Explanation: We choose ± logs around the covariance parameters to
+# allow substantial but controlled variation in the parameters.  This
+# range ensures that the parameters can vary significantly (by a
+# factor of approximately s in both directions on the original
+# scale), which is often sufficient for sensitivity analysis while
+# preventing extreme values that might lead to numerical instability
+# or non-meaningful results.
 
 
-model_metrics = GPModelMetrics(d, p, x_min, x_max, goldstein_price)
+# Compute the metrics for a random set of parameters
+set_size = 4000
+gpexperiment.evaluate_model_variation(lb, ub, set_size=set_size)
 
-model_metrics.j_plus_gp_point()
+# CP
+gpexperiment.j_plus_gp_point()
 
-model_metrics.compute_metrics_set(lb, ub)
+plt.scatter(gpexperiment.rmse_res, gpexperiment.iae_alpha_res)
+plt.show()
 
 # Compute the convex hull of the cloud to find the inaccessible area for prediction by GP.
 x_curve, lower_curve = compute_convex_lower_hull(
-    gnp.asarray(model_metrics.rmse_res),
-    gnp.asarray(model_metrics.iae_alpha_res),
+    gnp.asarray(gpexperiment.rmse_res),
+    gnp.asarray(gpexperiment.iae_alpha_res),
     yliminf=0.19,
     xlim=5.5e10,
-    ylimsup=0.22,
-    nb_p=2 * 10,
+    ylimsup=0.22
 )
 
 x_curve_loo, lower_curve_loo = compute_convex_lower_hull(
-    gnp.asarray(model_metrics.rmse_resloo),
-    gnp.asarray(model_metrics.iae_alpha_resloo),
-    yliminf=0.2,
-    nb_p=2 * 10,
+    gnp.asarray(gpexperiment.rmse_resloo),
+    gnp.asarray(gpexperiment.iae_alpha_resloo),
+    yliminf=0.2
 )
 
 # display the cloud
@@ -60,15 +71,15 @@ sns.set_theme(style="ticks", font_scale=1.75)
 fig, axs = plt.subplots(1, 2, figsize=(17, 7), sharey=True)
 
 axs[0].plot(
-    model_metrics.rmse_resloo,
-    model_metrics.iae_alpha_resloo,
+    gpexperiment.rmse_resloo,
+    gpexperiment.iae_alpha_resloo,
     "r*",
     alpha=0.5,
     zorder=-1,
 )
 axs[0].scatter(
-    model_metrics.rmse_remlloo,
-    model_metrics.iae_alpha_remlloo,
+    gpexperiment.rmse_remlloo,
+    gpexperiment.iae_alpha_remlloo,
     s=150,
     c="b",
     marker="s",
@@ -94,7 +105,7 @@ axs[0].fill_between(
 )
 axs[0].legend()
 
-axs[1].set_ylim(-0.01, np.max(model_metrics.iae_alpha_resloo) + 0.01)
+axs[1].set_ylim(-0.01, np.max(gpexperiment.iae_alpha_resloo) + 0.01)
 axs[1].fill_between(
     x_curve,
     lower_curve,
@@ -108,8 +119,8 @@ axs[1].fill_between(
 )
 
 axs[1].scatter(
-    model_metrics.rmse_reml,
-    model_metrics.iae_alpha_reml,
+    gpexperiment.rmse_reml,
+    gpexperiment.iae_alpha_reml,
     s=150,
     c="b",
     marker="s",
@@ -117,8 +128,8 @@ axs[1].scatter(
     label="REML",
 )
 axs[1].scatter(
-    model_metrics.rmse_reml,
-    model_metrics.iae_j_plus_gp,
+    gpexperiment.rmse_reml,
+    gpexperiment.iae_j_plus_gp,
     s=500,
     c="g",
     marker="*",
@@ -127,17 +138,17 @@ axs[1].scatter(
 )
 
 axs[1].plot(
-    model_metrics.rmse_res, model_metrics.iae_alpha_res, "r*", alpha=0.5, zorder=-1
+    gpexperiment.rmse_res, gpexperiment.iae_alpha_res, "r*", alpha=0.5, zorder=-1
 )
 axs[1].set_xlabel(r"RMSE$(\theta)$")
 
 axs[1].set_title("Metrics computed on the test set")
 
 
-dy = model_metrics.iae_j_plus_gp - model_metrics.iae_alpha_reml
+dy = gpexperiment.iae_j_plus_gp - gpexperiment.iae_alpha_reml
 axs[1].arrow(
-    model_metrics.rmse_reml,
-    model_metrics.iae_alpha_reml - 0.006,
+    gpexperiment.rmse_reml,
+    gpexperiment.iae_alpha_reml - 0.006,
     0,
     dy + 0.025,
     head_width=50,

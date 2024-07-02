@@ -22,9 +22,11 @@ x_min = gnp.array([-2, -2])
 x_max = gnp.array([ 2,  2])
 
 # GP model
-p = 2
+p = 3
 
-gpexperiment = GPExperiment(d, p, x_min, x_max, goldstein_price)
+n_train = 200
+
+gpexperiment = GPExperiment(d, p, x_min, x_max, goldstein_price, n_train=n_train)
 
 # Bounds for GP parameters when computing the cloud
 s = 10
@@ -40,12 +42,24 @@ ub = gpexperiment.model.covparam + logs
 # preventing extreme values that might lead to numerical instability
 # or non-meaningful results.
 
-
 # Compute the metrics for a random set of parameters
 set_size = 4000
-gpexperiment.evaluate_model_variation(lb, ub, set_size=set_size)
+random_param = gpexperiment.evaluate_model_variation(lb, ub, set_size=set_size)
+
+# compute the minimal LOO values and associated J+GP predictions
+ind_min_iae = np.argmin(gpexperiment.iae_alpha_resloo)
+metrics_loo = (gpexperiment.rmse_resloo[ind_min_iae], gpexperiment.iae_alpha_resloo[ind_min_iae])
+metrics_test = (gpexperiment.rmse_res[ind_min_iae], gpexperiment.iae_alpha_res[ind_min_iae])
+covparam_mini = (ub - lb) * random_param[ind_min_iae] + lb
 
 # CP
+
+# J+GP after mini IAE
+gpexperiment.j_plus_gp_point(covparam_mini)
+reml_rmse_test = gpexperiment.rmse_res[ind_min_iae]
+jcp_iae_test = gpexperiment.iae_j_plus_gp
+
+# J+GP after REML
 gpexperiment.j_plus_gp_point()
 
 plt.scatter(gpexperiment.rmse_res, gpexperiment.iae_alpha_res)
@@ -85,6 +99,15 @@ axs[0].scatter(
     marker="s",
     zorder=1,
     label="REML",
+)
+axs[0].scatter(
+    metrics_loo[0],
+    metrics_loo[1],
+    s=150,
+    c="y",
+    marker="s",
+    zorder=1,
+    label="IAE mini",
 )
 
 axs[0].set_xlabel(r"RMSE$(\theta)$")
@@ -137,13 +160,32 @@ axs[1].scatter(
     zorder=1,
 )
 
+axs[1].scatter(
+    metrics_test[0],
+    metrics_test[1],
+    s=150,
+    c="y",
+    marker="s",
+    label="IAE mini",
+    zorder=1,
+)
+
+axs[1].scatter(
+    reml_rmse_test,
+    jcp_iae_test,
+    s=500,
+    c="y",
+    marker="*",
+    label="J+GP + IAE mini",
+    zorder=1,
+)
+
 axs[1].plot(
     gpexperiment.rmse_res, gpexperiment.iae_alpha_res, "r*", alpha=0.5, zorder=-1
 )
 axs[1].set_xlabel(r"RMSE$(\theta)$")
 
 axs[1].set_title("Metrics computed on the test set")
-
 
 dy = gpexperiment.iae_j_plus_gp - gpexperiment.iae_alpha_reml
 axs[1].arrow(
@@ -159,4 +201,5 @@ axs[1].arrow(
 
 axs[1].legend()
 plt.tight_layout()
+fig.suptitle(f"N_train = {n_train}", y=1.01)
 plt.show()

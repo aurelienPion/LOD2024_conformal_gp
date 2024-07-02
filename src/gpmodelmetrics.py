@@ -98,14 +98,17 @@ class GPExperiment:
             self.data.z_train, zpm=self.zpmloo, zpv=self.zpvloo
         )
 
-    def j_plus_gp_point(self):
+    def j_plus_gp_point(self, covparam=None):
         """Compute IAE of prediction by J+GP"""
+        if covparam is not None:
+            self.model.covparam = covparam 
         quantiles_res_plus, quantiles_res_minus = j_plus_gp(self.model, self.data)
         self.iae_j_plus_gp = iae_alpha(
             self.data.z_test,
             quantiles_minus=quantiles_res_minus,
             quantiles_plus=quantiles_res_plus,
         )
+        self.model.covparam = np.copy(self.covparam_reml)
 
     def evaluate_model_variation(self, lb, ub, set_size=500):
         """Compute a set of metrics (IAE, RMSE) for predictions with
@@ -160,3 +163,6 @@ class GPExperiment:
             self.iae_alpha_res[i] = iae_alpha(self.data.z_test, zpm, zpv)
 
         self.model.covparam = np.copy(self.covparam_reml)
+
+        # return the random parameters
+        return param

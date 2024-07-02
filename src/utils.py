@@ -9,22 +9,27 @@ def matern_p(p):
     """wrapper for kernel Matern
     to change the regularity parameter
     """
+
     def k(x, z, covparam, pairwise=False):
         K = gp.kernel.maternp_covariance(x, z, p, covparam, pairwise)
         return K
+
     return k
+
 
 def constant_mean(x, param):
     return gnp.ones((x.shape[0], 1))
 
 
-def compute_convex_lower_hull(rmse_res, iae_alpha_res, yliminf=0.23, ylimsup=0, xlim=np.inf, nb_p=2*10):
-    """Compute the convex hull of a 2D cloud defined by
+def compute_convex_lower_hull(
+    rmse_res, iae_alpha_res, yliminf=0.23, ylimsup=0, xlim=np.inf, nb_p=2 * 10
+):
+    """Compute the convex hull of a 2D set of points defined by
     (rmse_res, iae_alpha_res)
 
-    Return only the part below the cloud.
+    Return only the part below the set of points.
     """
-    two_d_arrays = gnp.zeros((nb_p*nb_p*nb_p, 2))
+    two_d_arrays = gnp.zeros((nb_p * nb_p * nb_p, 2))
     two_d_arrays[:, 0] = rmse_res
     two_d_arrays[:, 1] = iae_alpha_res
     hull = ConvexHull(two_d_arrays)
@@ -33,7 +38,7 @@ def compute_convex_lower_hull(rmse_res, iae_alpha_res, yliminf=0.23, ylimsup=0, 
     x_curve = []
     for vertex in hull.vertices:
         x, y = two_d_arrays[vertex, 0], two_d_arrays[vertex, 1]
-        # only keep the part below the cloud
+        # only keep the part below the set of points
         if y < yliminf and x < xlim:
             lower_curve.append(y)
             x_curve.append(x)
@@ -48,5 +53,3 @@ def compute_convex_lower_hull(rmse_res, iae_alpha_res, yliminf=0.23, ylimsup=0, 
     x_curve = x_curve[ind]
     lower_curve = lower_curve[ind]
     return x_curve, lower_curve
-
-

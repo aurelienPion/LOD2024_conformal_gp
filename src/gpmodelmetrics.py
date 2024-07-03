@@ -1,10 +1,11 @@
 import gpmp as gp
 import gpmp.num as gnp
 import numpy as np
+import matplotlib.pyplot as plt
 
 from src.data import Data
 from src.metrics import iae_alpha, rmse
-from src.utils import matern_p, constant_mean
+from src.utils import matern_p, constant_mean, compute_convex_lower_hull
 from src.j_plus_gp import j_plus_gp
 
 
@@ -24,6 +25,7 @@ class GPExperiment:
     Methods:
         - j_plus_gp_point: compute (IAE, REML) when the prediction interval is built with J+GP
         - compute_metrics_set: compute a set of metrics (IAE, RMSE) for varying GP model parameters
+        - plot: display the results
 
     """
 
@@ -109,6 +111,8 @@ class GPExperiment:
             quantiles_minus=quantiles_res_minus,
             quantiles_plus=quantiles_res_plus,
         )
+
+        # Restore the original covariance parameters
         self.model.covparam = np.copy(self.covparam_reml)
 
     def evaluate_model_variation(self, lb, ub, set_size=500):
@@ -164,3 +168,128 @@ class GPExperiment:
         self.model.covparam = np.copy(self.covparam_reml)
 
         return param
+
+    def plot(self, yliminf_loo=0.15, yliminf_test=0.1, xlimsup=7e4, ylimsup=0.25, iae_max=None, x_loo_max=None, path=None):
+
+        # if iae_max and x_loo_max are not none, zoom in around the
+        # REML point
+        if iae_max is not None and x_loo_max is not None:
+            ind_iae_loo = self.iae_alpha_resloo <= iae_max
+            ind_rmse_loo = self.rmse_resloo <= x_loo_max
+            ind_loo = np.logical_and(ind_iae_loo, ind_rmse_loo)
+
+        # Compute the convex hull of the cloud to find the inaccessible area for prediction by GP.
+        x_curve_loo, lower_curve_loo = compute_convex_lower_hull(
+            gnp.asarray(self.rmse_resloo[ind_loo]),
+            gnp.asarray(self.iae_alpha_resloo[ind_loo]),
+            yliminf=yliminf_loo,
+        )
+
+        x_curve, lower_curve = compute_convex_lower_hull(
+            gnp.asarray(self.rmse_res[ind_loo]),
+            gnp.asarray(self.iae_alpha_res[ind_loo]),
+            yliminf=yliminf_test,
+            xlimsup=xlimsup,
+            ylimsup=ylimsup,
+        )
+
+        # plot the results
+        fig, axs = plt.subplots(1, 2, figsize=(17, 7), sharey=True)
+
+        # loo points
+        axs[0].plot(
+            self.rmse_resloo[ind_loo],
+            self.iae_alpha_resloo[ind_loo],
+            "r*",
+            alpha=0.5,
+            zorder=-1,
+        )
+        axs[0].scatter(
+            self.rmse_remlloo,
+            self.iae_alpha_remlloo,
+            s=150,
+            c="b",
+            marker="s",
+            zorder=1,
+            label="REML",
+        )
+
+        # inaccessible area
+        axs[0].fill_between(
+            np.concatenate((np.linspace(0, np.min(x_curve_loo), 2), x_curve_loo)),
+            np.concatenate((iae_max*np.ones(2), lower_curve_loo)),
+            np.zeros(2 + lower_curve_loo.shape[0]),
+            hatch="/",
+            alpha=0.5,
+            color="white",
+            edgecolor="black",
+            zorder=-1,
+            label="inaccessible for GP",
+        )
+
+        axs[0].set_xlabel(r"RMSE$(\theta)$")
+        axs[0].set_ylabel(r"$J_{\rm IAE}(\theta)$")
+        axs[0].set_title("Metrics computed by LOO on the train set")
+        axs[0].legend(loc='upper right')
+
+        # test points
+        # inaccessible area
+        axs[1].fill_between(
+            np.concatenate((np.array([0, np.min(x_curve)]), x_curve)),
+            np.concatenate((np.max(self.iae_alpha_res[ind_loo])*np.ones(2), lower_curve)),
+            np.zeros(2 + lower_curve.shape[0]),
+            hatch="/",
+            alpha=0.5,
+            color="white",
+            edgecolor="black",
+            zorder=-1,
+            label="inaccessible for GP",
+        )
+
+        axs[1].scatter(
+            self.rmse_reml,
+            self.iae_alpha_reml,
+            s=150,
+            c="b",
+            marker="s",
+            zorder=1,
+            label="REML",
+        )
+        axs[1].scatter(
+            self.rmse_reml,
+            self.iae_j_plus_gp,
+            s=500,
+            c="g",
+            marker="*",
+            label="J+GP method",
+            zorder=1,
+        )
+
+        axs[1].plot(
+            self.rmse_res[ind_loo], self.iae_alpha_res[ind_loo], "r*", alpha=0.5, zorder=-1
+        )
+        axs[1].set_xlabel(r"RMSE$(\theta)$")
+
+        axs[1].set_title("Metrics computed on the test set")
+
+        dy = self.iae_j_plus_gp - self.iae_alpha_reml
+        axs[1].arrow(
+            self.rmse_reml,
+            self.iae_alpha_reml - 0.006,
+            0,
+            dy + 0.025,
+            head_width=50,
+            head_length=0.01,
+            fc="k",
+            ec="k",
+        )
+
+        axs[1].legend(loc='upper right')
+
+        plt.tight_layout()
+        plt.show()
+
+        if path is not None:
+            fig.savefig(f'{path}/pareto_cp.pdf', bbox_inches='tight')
+
+        return self.rmse_res[ind_loo].shape[0]

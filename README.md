@@ -23,11 +23,11 @@ the module ```gpmp.misc.testfunctions``` or using the functions in
 
 # Documentation
 
-The cloud is built using the class ```Cloud``` implemented in the file
-```src.point_cloud.py```. When you instantiate the class, a design of
+The cloud is built using the class ```GPExperiment``` implemented in the file
+```src.gpmodelmetrics.py```. When you instantiate the class, a design of
 experiment is automatically created. Then you can use the two above methods:
 
-- The ```point_cloud``` method is used to generate the cloud around the
+- The ```evaluate_model_variation``` method is used to generate the cloud around the
 parameter selected by restricted maximum likelihood.
 - The ```j_plus_gp_point``` method is used to compute the IAE when the
 prediction interval are computed using J+GP method.

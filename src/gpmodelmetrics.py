@@ -170,7 +170,20 @@ class GPExperiment:
         return param
 
     def plot(self, yliminf_loo=0.15, yliminf_test=0.1, xlimsup=7e4, ylimsup=0.25, iae_max=None, x_loo_max=None, path=None):
+        """Plot the figure of points (RMSE, IAE) around the prediction
+        made when the parameter is selected by REML.
 
+        On the left the metrics are computed by LOO and on the right,
+        the figure are computed on the TEST set.
+
+        Parameters:
+            yliminf_loo, yliminf_test, xlimsup, ylimsup (int): parameters to compute the inaccessible are by GP models (see compute_convex_lower_hull)
+            iae_max, x_loo_max (float): parameters for zoom in around the REML point
+            path (str): path top save the figure, if None the figure is not saved
+        
+        Return:
+            The number of points plotted
+        """
         # if iae_max and x_loo_max are not none, zoom in around the
         # REML point
         if iae_max is not None and x_loo_max is not None:

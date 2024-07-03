@@ -93,6 +93,7 @@ class GPExperiment:
         # Compute metrics
         self.rmse_reml = rmse(self.zpm, self.data.z_test)
         self.iae_alpha_reml = iae_alpha(self.data.z_test, zpm=self.zpm, zpv=self.zpv)
+        
         self.rmse_remlloo = rmse(self.zpmloo, self.data.z_train)
         self.iae_alpha_remlloo = iae_alpha(
             self.data.z_train, zpm=self.zpmloo, zpv=self.zpvloo
@@ -115,26 +116,26 @@ class GPExperiment:
         the GP model when the parameters vary around
         self.covparam_reml.
 
-        Each parameter theta_i varies in [lb_i*u + ub_i], where u~U(0, 1).
+        Each parameter theta_i varies in [lb_i, ub_i] with a random
+        value in between.
 
         The results are stored in the attributes:
-            - On the test set
+            - On the test set:
                 - rmse_res
                 - iae_alpha_res
-            - On the train set
+            - On the train set:
                 - rmse_resloo
                 - iae_alpha_resloo
 
         Parameters:
-            - lb (list): lower bounds for parameter variation
-            - ub (list): upper bounds for parameter variation
-            - set_size (int): number of points in the set
+            - lb (list): Lower bounds for parameter variation
+            - ub (list): Upper bounds for parameter variation
+            - set_size (int): Number of points in the set
 
         """
         # Parameters exploration
-        param = np.random.rand(set_size, lb.shape[0])
+        param = np.random.uniform(low=lb, high=ub, size=(set_size, len(lb)))
 
-        # Results
         # Metrics computed on the test set
         self.rmse_res = np.zeros(set_size)
         self.iae_alpha_res = np.zeros(set_size)
@@ -145,7 +146,7 @@ class GPExperiment:
 
         for i in range(set_size):
             # Modify the value of the covparam of the GP model
-            self.model.covparam =  (ub - lb) * param[i] + lb
+            self.model.covparam = param[i]
 
             # Metrics on the train set by LOO
             zpmloo, zpvloo, _ = self.model.loo(self.data.x_train, self.data.z_train, convert_out=False)
@@ -154,15 +155,12 @@ class GPExperiment:
             self.iae_alpha_resloo[i] = iae_alpha(self.data.z_train, zpmloo, zpvloo)
 
             # Metrics on the test set
-            zpm, zpv = self.model.predict(
-                    self.data.x_train, self.data.z_train, self.data.x_test, convert_out=False
-                )
-            
-            zpv[zpv <= 0.0] = 1e-5            
+            zpm, zpv = self.model.predict(self.data.x_train, self.data.z_train, self.data.x_test, convert_out=False)
+            zpv[zpv <= 0.0] = 1e-5
             self.rmse_res[i] = rmse(zpm, self.data.z_test)
             self.iae_alpha_res[i] = iae_alpha(self.data.z_test, zpm, zpv)
 
+        # Restore the original covariance parameters
         self.model.covparam = np.copy(self.covparam_reml)
 
-        # return the random parameters
         return param

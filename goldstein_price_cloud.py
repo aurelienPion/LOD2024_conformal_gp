@@ -19,14 +19,16 @@ np.random.seed(0)
 # Goldstein Price function
 d = 2
 x_min = gnp.array([-2, -2])
-x_max = gnp.array([ 2,  2])
-
-# GP model
-p = 3
+x_max = gnp.array([2, 2])
 
 n_train = 200
+n_test = 1500
 
-gpexperiment = GPExperiment(d, p, x_min, x_max, goldstein_price, n_train=n_train)
+# GP model
+p = 2
+gpexperiment = GPExperiment(
+    d, p, x_min, x_max, goldstein_price, n_train=n_train, n_test=n_test
+)
 
 # Bounds for GP parameters when computing the cloud
 s = 10
@@ -44,40 +46,47 @@ ub = gpexperiment.model.covparam + logs
 
 # Compute the metrics for a random set of parameters
 set_size = 4000
-random_param = gpexperiment.evaluate_model_variation(lb, ub, set_size=set_size)
+covparam_set = gpexperiment.evaluate_model_variation(lb, ub, set_size=set_size)
 
-# compute the minimal LOO values and associated J+GP predictions
-ind_min_iae = np.argmin(gpexperiment.iae_alpha_resloo)
-metrics_loo = (gpexperiment.rmse_resloo[ind_min_iae], gpexperiment.iae_alpha_resloo[ind_min_iae])
-metrics_test = (gpexperiment.rmse_res[ind_min_iae], gpexperiment.iae_alpha_res[ind_min_iae])
-covparam_mini = (ub - lb) * random_param[ind_min_iae] + lb
 
-# CP
-
-# J+GP after mini IAE
-gpexperiment.j_plus_gp_point(covparam_mini)
-reml_rmse_test = gpexperiment.rmse_res[ind_min_iae]
-jcp_iae_test = gpexperiment.iae_j_plus_gp
-
-# J+GP after REML
+# Conformal prediction
 gpexperiment.j_plus_gp_point()
 
 plt.scatter(gpexperiment.rmse_res, gpexperiment.iae_alpha_res)
 plt.show()
 
+# Also compute the minimal LOO IAE values and associated conformal prediction
+ind_min_iae = np.argmin(gpexperiment.iae_alpha_resloo)
+
+metrics_loo = (
+    gpexperiment.rmse_resloo[ind_min_iae],
+    gpexperiment.iae_alpha_resloo[ind_min_iae],
+)
+metrics_test = (
+    gpexperiment.rmse_res[ind_min_iae],
+    gpexperiment.iae_alpha_res[ind_min_iae],
+)
+covparam_min_iae = covparam_set[ind_min_iae]
+
+gpexperiment.j_plus_gp_point(covparam_min_iae)
+
+reml_rmse_test = gpexperiment.rmse_res[ind_min_iae]
+jcp_iae_test = gpexperiment.iae_j_plus_gp
+
+
 # Compute the convex hull of the cloud to find the inaccessible area for prediction by GP.
+x_curve_loo, lower_curve_loo = compute_convex_lower_hull(
+    gnp.asarray(gpexperiment.rmse_resloo),
+    gnp.asarray(gpexperiment.iae_alpha_resloo),
+    yliminf=0.2,
+)
+
 x_curve, lower_curve = compute_convex_lower_hull(
     gnp.asarray(gpexperiment.rmse_res),
     gnp.asarray(gpexperiment.iae_alpha_res),
     yliminf=0.19,
-    xlim=5.5e10,
-    ylimsup=0.22
-)
-
-x_curve_loo, lower_curve_loo = compute_convex_lower_hull(
-    gnp.asarray(gpexperiment.rmse_resloo),
-    gnp.asarray(gpexperiment.iae_alpha_resloo),
-    yliminf=0.2
+    xlimsup=5.5e10,
+    ylimsup=0.22,
 )
 
 # display the cloud
@@ -200,6 +209,7 @@ axs[1].arrow(
 )
 
 axs[1].legend()
+
 plt.tight_layout()
 fig.suptitle(f"N_train = {n_train}", y=1.01)
 plt.show()

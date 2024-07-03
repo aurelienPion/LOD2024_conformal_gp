@@ -27,45 +27,39 @@ def j_plus_gp(model: gp.core.Model, data: Data, normalized=True):
         given confidence level alpha you need to compute the quantiles of the
         resutls 
     """
-    # for simplicity everything is run with numpy
     zpm_loo, zpv_loo, _ = model.loo(data.x_train, data.z_train)
 
-    n = data.z_train.size()[0]
+    n_train = data.z_train.size()[0]
     n_test = data.x_test.size()[0]
-    quantiles_plus = np.zeros((n_test, n))
-    quantiles_minus = np.zeros((n_test, n))
+    quantiles_plus = np.zeros((n_test, n_train))
+    quantiles_minus = np.zeros((n_test, n_train))
 
     # compute the non-conformity scores
     if normalized:
         # J+GP
-        r_i = np.abs((data.z_train - zpm_loo))/np.sqrt(zpv_loo)
+        R_i = np.abs((data.z_train - zpm_loo))/np.sqrt(zpv_loo)
     else:
         # J+
-        r_i = np.abs(data.z_train - zpm_loo)
+        R_i = np.abs(data.z_train - zpm_loo)
+    
     if gnp._gpmp_backend_ == "torch":
-        r_i = r_i.numpy()
+        R_i = R_i.numpy()
 
-    for i in range(n):
-        # compute LOO model (could be improved with scikit learn)
-        if i < n-1:
-            x_train = np.concatenate(
-                (data.x_train[:i, :], data.x_train[i+1:, :]))
-            z_train = np.concatenate(
-                (data.z_train[:i], data.z_train[i+1:]))
-        else:
-            x_train = data.x_train[:n-1, :]
-            z_train = data.z_train[:n-1]
+    for i in range(n_train):
+        # Remove the i-th point from the training set
+        x_train = np.delete(data.x_train, i, axis=0)
+        z_train = np.delete(data.z_train, i, axis=0)
 
         # compute the prediction zith the LOO model on the test set
         zpmi, zpvi = model.predict(x_train, z_train, data.x_test)
 
         # sequences to build the PI
         if normalized:
-            quantiles_plus[:, i] = np.sqrt(zpvi)*r_i[i] + zpmi
-            quantiles_minus[:, i] = - np.sqrt(zpvi)*r_i[i] + zpmi
+            quantiles_plus[:, i] = zpmi + np.sqrt(zpvi) * R_i[i] 
+            quantiles_minus[:, i] = zpmi - np.sqrt(zpvi) * R_i[i]
         else:
-            quantiles_plus[:, i] = r_i[i] + zpmi
-            quantiles_minus[:, i] = - np.sqrt(zpvi)*r_i[i] + zpmi
+            quantiles_plus[:, i] = zpmi + R_i[i]
+            quantiles_minus[:, i] = zpmi - R_i[i]
     
     quantiles_res_plus = np.sort(quantiles_plus)
     quantiles_res_minus = np.sort(quantiles_minus)

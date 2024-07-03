@@ -21,7 +21,7 @@ d = 2
 x_min = gnp.array([-2, -2])
 x_max = gnp.array([2, 2])
 
-n_train = 200
+n_train = 150
 n_test = 1500
 
 # GP model
